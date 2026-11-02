@@ -218,3 +218,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Локальные настройки IDE
+.idea/
+.vscode/
+
+# Локальные видео; небольшие тестовые данные разрешены
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+*.mts
+*.m2ts
+*.ts
+!tests/data/**
