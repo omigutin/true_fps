@@ -1,4 +1,4 @@
-"""Проверки публичного API и синтетические интеграционные измерения."""
+""" Проверки публичного API и синтетические интеграционные измерения. """
 
 import json
 import math
@@ -29,17 +29,17 @@ def process(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
 
 def output(data: object) -> subprocess.CompletedProcess[str]:
-    """Создать ответ ffprobe для проверки оркестрации."""
+    """ Создать ответ ffprobe для проверки оркестрации. """
     return subprocess.CompletedProcess([], 0, json.dumps(data), "")
 
 
 def metadata(duration: str = "12") -> subprocess.CompletedProcess[str]:
-    """Метаданные видеопотока для модульных проверок."""
+    """ Метаданные видеопотока для модульных проверок. """
     return output({"streams": [{"index": 0}], "format": {"duration": duration}})
 
 
 def frames(timestamps: list[float]) -> subprocess.CompletedProcess[str]:
-    """Кадры с заданными временными метками."""
+    """ Кадры с заданными временными метками. """
     return output({"frames": [{"best_effort_timestamp_time": str(t)} for t in timestamps]})
 
 
@@ -70,6 +70,17 @@ def test_convenience_function_and_partial_data(process: Mock, tmp_path: Path) ->
     assert result.fps == pytest.approx(25)
     assert result.status is FpsStatus.INSUFFICIENT_DATA
     assert result.usable_window_count == 1
+
+
+def test_ffprobe_warnings_are_kept_in_result(process: Mock, tmp_path: Path) -> None:
+    video = tmp_path / "video"
+    video.touch()
+    stamps = {"frames": [{"best_effort_timestamp_time": t} for t in ("6", "6.04")]}
+    broken = subprocess.CompletedProcess([], 0, json.dumps(stamps), "error while decoding MB")
+    process.side_effect = [metadata(), frames([1, 1.04]), broken, frames([10, 10.04])]
+    result = detect_fps(video)
+    assert result.is_consistent
+    assert result.warnings == ("error while decoding MB",)
 
 
 def test_inconsistent_measurement_is_returned_not_raised(process: Mock, tmp_path: Path) -> None:

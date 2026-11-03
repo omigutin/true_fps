@@ -1,4 +1,4 @@
-"""Проверки границы subprocess, поиска исполняемого файла и JSON."""
+""" Проверки границы subprocess, поиска исполняемого файла и JSON. """
 
 import json
 import math
@@ -21,7 +21,7 @@ def process(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
 
 def answer(process: Mock, data: object) -> None:
-    """Настроить успешный ответ на границе процесса."""
+    """ Настроить успешный ответ на границе процесса. """
     process.return_value = subprocess.CompletedProcess([], 0, json.dumps(data), "")
 
 
@@ -29,7 +29,7 @@ def test_paths_with_spaces_and_cyrillic_are_separate_arguments(process: Mock) ->
     answer(process, {"frames": [{"best_effort_timestamp_time": "1.25"}]})
     probe = Ffprobe("мой ffprobe", timeout=7)
     video = Path("папка с пробелами/ролик ; $(echo).mp4")
-    assert probe.timestamps(video, 1, 2) == (1.25,)
+    assert probe.timestamps(video, 1, 2).values == (1.25,)
     args, kwargs = process.call_args
     assert args[0][-1] == str(video)
     assert "shell" not in kwargs
@@ -54,7 +54,7 @@ def test_valid_metadata_and_origin(process: Mock) -> None:
 def test_bad_timestamps_preserve_missing_frame_positions(process: Mock) -> None:
     values: list[object] = ["0", "N/A", "bad", "inf", "nan", True, None, "0.04"]
     answer(process, {"frames": [{"best_effort_timestamp_time": value} for value in values]})
-    assert Ffprobe().timestamps(Path("video"), 0, 1) == (
+    assert Ffprobe().timestamps(Path("video"), 0, 1).values == (
         0,
         None,
         None,
@@ -68,7 +68,7 @@ def test_bad_timestamps_preserve_missing_frame_positions(process: Mock) -> None:
 
 def test_frame_without_timestamp_is_not_silently_deleted(process: Mock) -> None:
     answer(process, {"frames": [{}]})
-    assert Ffprobe().timestamps(Path("video"), 0, 1) == (None,)
+    assert Ffprobe().timestamps(Path("video"), 0, 1).values == (None,)
 
 
 @pytest.mark.parametrize("payload", ["not JSON", "[]", '{"frames": null}', '{"frames": [1]}'])
@@ -85,13 +85,44 @@ def test_missing_video_or_format_raises(process: Mock, payload: object) -> None:
         Ffprobe().video_info(Path("video"))
 
 
-@pytest.mark.parametrize("returncode", [0, 1])
-def test_error_stderr_is_not_success(process: Mock, returncode: int) -> None:
-    process.return_value = subprocess.CompletedProcess(
-        [], returncode, '{"frames": []}', "decode error"
-    )
+def test_error_stderr_with_nonzero_exit_raises(process: Mock) -> None:
+    process.return_value = subprocess.CompletedProcess([], 1, '{"frames": []}', "decode error")
     with pytest.raises(VideoReadError, match="decode error"):
         Ffprobe().timestamps(Path("video"), 0, 1)
+
+
+def test_stderr_with_success_exit_is_warning(process: Mock) -> None:
+    process.return_value = subprocess.CompletedProcess(
+        [], 0, '{"frames": [{"best_effort_timestamp_time": "1"}]}', "error while decoding MB\n"
+    )
+    result = Ffprobe().timestamps(Path("video"), 0, 1)
+    assert result.values == (1.0,)
+    assert result.warning == "error while decoding MB"
+
+
+def test_stream_duration_is_preferred_over_format(process: Mock) -> None:
+    # Длительность format включает смещение начала шкалы (mp4 со смещением).
+    answer(
+        process,
+        {
+            "streams": [{"index": 0, "duration": "12", "start_time": "100"}],
+            "format": {"duration": "112", "start_time": "100"},
+        },
+    )
+    info = Ffprobe().video_info(Path("video"))
+    assert (info.duration, info.start_time) == (12, 100)
+
+
+def test_format_is_used_without_stream_duration(process: Mock) -> None:
+    answer(
+        process,
+        {
+            "streams": [{"index": 0, "duration": "N/A"}],
+            "format": {"duration": "9", "start_time": "2"},
+        },
+    )
+    info = Ffprobe().video_info(Path("video"))
+    assert (info.duration, info.start_time) == (9, 2)
 
 
 def test_nonzero_exit_without_stderr_raises(process: Mock) -> None:

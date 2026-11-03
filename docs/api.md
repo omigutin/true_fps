@@ -41,6 +41,7 @@ consistency_threshold=0.01)` создаёт детектор и вызывает
 | `windows` | `tuple[WindowMeasurement, ...]`: все обработанные окна |
 | `relative_spread` | `float \| None`: относительный разброс; для <2 окон отсутствует |
 | `reason` | `str`: пояснение статуса, включая число согласованных окон |
+| `warnings` | `tuple[str, ...]`: stderr ffprobe при успешном коде возврата; по умолчанию `()` |
 | `usable_window_count` | `int`: число окон, участвовавших в вычислении |
 | `is_consistent` | `bool`: статус равен `CONSISTENT`, пригодны хотя бы два окна |
 
@@ -59,6 +60,26 @@ consistency_threshold=0.01)` создаёт детектор и вызывает
 Свойства `interval_count` и `elapsed_seconds` возвращают соответственно `n - 1`
 и разность крайних меток для пригодного окна; для отклонённого — ноль. Служебные
 модули `measurement` и `ffprobe` не входят в стабильный публичный API.
+
+## Поиск и установка ffmpeg/ffprobe
+
+- `VideoTools(ffmpeg: Path, ffprobe: Path)` — неизменяемые абсолютные пути.
+- `find_video_tools(tools_dir: Path | None = None, *, timeout=30.0) -> VideoTools | None`:
+  сначала `<tools_dir>/ffmpeg/bin`, затем PATH; инструмент засчитывается, только если
+  отвечает на `-version`. `None`, если не найден хотя бы один.
+- `local_tool_path(tools_dir, tool) -> Path`: путь инструмента в локальном каталоге
+  (`ffprobe.exe` в Windows, `ffprobe` в остальных ОС).
+- `install_video_tools(tools_dir, *, require_libx264=False, on_status=None, url=..., sha256=None) -> InstallResult`:
+  скачивает сборку для Windows x64 и атомарно ставит оба файла. Исправный комплект
+  повторно не скачивается. Ошибки сети, архива и проверок возвращаются как
+  `InstallResult(success=False, message=...)`, исключения не возбуждаются.
+- `ensure_video_tools(...)`: `find_video_tools`, а при неудаче — установка и повторный поиск.
+- `has_libx264(ffmpeg: Path) -> bool`: есть ли H.264-кодировщик.
+- `InstallResult(success: bool, message: str, tools: VideoTools | None = None)`:
+  `message` — готовый текст для пользователя на русском.
+
+`on_status` получает строки о ходе установки (загрузка, проверки) для вывода в консоль
+или интерфейс.
 
 ## Политика ошибок
 

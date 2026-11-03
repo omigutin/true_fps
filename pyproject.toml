@@ -1,7 +1,7 @@
 [project]
 name = "true_fps"
-version = "0.1.0"
-description = "Измерение FPS видео по временным меткам ffprobe"
+version = "0.2.0"
+description = "Измерение FPS видео по временным меткам ffprobe и автоустановка ffmpeg/ffprobe"
 authors = [{ name = "Oleg Migutin" }]
 license = "MIT"
 license-files = ["LICENSE"]

@@ -10,11 +10,13 @@ poetry config virtualenvs.in-project true --local
 poetry install --no-interaction
 poetry run pytest
 poetry run ruff check .
-poetry run ruff format --check .
 poetry run mypy
 poetry check --lock
 poetry build
 ```
+
+`ruff format` не используется: он убирает пробелы внутри однострочных докстрингов,
+а в проекте принят вид `""" Текст. """`.
 
 `poetry.lock` хранится в Git; `poetry install` использует зафиксированные версии.
 `poetry lock` нужен при сознательном изменении зависимостей. Для автоматизации
@@ -44,7 +46,7 @@ poetry run pytest -m integration
 
 ```sh
 python -m venv /tmp/true-fps-wheel
-/tmp/true-fps-wheel/bin/python -m pip install --no-deps dist/true_fps-0.1.0-py3-none-any.whl
+/tmp/true-fps-wheel/bin/python -m pip install --no-deps dist/true_fps-0.2.0-py3-none-any.whl
 cd /tmp
 /tmp/true-fps-wheel/bin/python -c 'from true_fps import FpsDetector; from importlib.resources import files; assert files("true_fps").joinpath("py.typed").is_file()'
 ```

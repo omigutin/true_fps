@@ -1,4 +1,4 @@
-"""Чистые вычисления: окна, измерения и взвешенная оценка согласованности."""
+""" Чистые вычисления: окна, измерения и взвешенная оценка согласованности. """
 
 import math
 import statistics
@@ -8,16 +8,16 @@ from .result import FpsResult, FpsStatus, WindowMeasurement
 
 
 def validate_positive(value: float, name: str) -> None:
-    """Проверить положительный конечный параметр, исключая bool."""
+    """ Проверить положительный конечный параметр, исключая bool. """
     if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
-        raise ValueError(f"{name} должен быть положительным конечным числом")
+        raise ValueError(f"{name} must be a positive finite number")
 
 
 def build_windows(duration: float, origin: float = 0.0) -> tuple[tuple[float, float], ...]:
-    """Окна около 10%, 50% и 90%, не длиннее 5 секунд и duration / 6."""
+    """ Окна около 10%, 50% и 90%, не длиннее 5 секунд и duration / 6. """
     validate_positive(duration, "duration")
     if not math.isfinite(origin):
-        raise ValueError("origin должен быть конечным числом")
+        raise ValueError("origin must be a finite number")
     length = min(5.0, duration / 6.0)
     if length == 0.0:
         return ()
@@ -33,7 +33,8 @@ def build_windows(duration: float, origin: float = 0.0) -> tuple[tuple[float, fl
 def measure_window(
     start: float, end: float, timestamps: Sequence[float | None]
 ) -> WindowMeasurement:
-    """Отклонить пропуски, дубликаты и немонотонные метки, не скрывая их сортировкой.
+    """
+    Отклонить пропуски, дубликаты и немонотонные метки, не скрывая их сортировкой.
 
     Метки вне запрошенного окна отбрасываются: seek ffprobe может начаться раньше.
     Любая отсутствующая или неконечная метка делает окно непригодным, поскольку
@@ -66,9 +67,9 @@ def combine_windows(
     windows: Sequence[WindowMeasurement],
     threshold: float,
 ) -> FpsResult:
-    """Объединить интервалы, сохранив значение отдельно от статуса согласованности."""
+    """ Объединить интервалы, сохранив значение отдельно от статуса согласованности. """
     if isinstance(threshold, bool) or not math.isfinite(threshold) or threshold < 0:
-        raise ValueError("threshold должен быть конечным неотрицательным числом")
+        raise ValueError("threshold must be a finite non-negative number")
     usable = [window for window in windows if window.fps is not None]
     result_windows = tuple(windows)
     if not usable:
