@@ -37,17 +37,27 @@ def measure_window(
     Отклонить пропуски, дубликаты и немонотонные метки, не скрывая их сортировкой.
 
     Метки вне запрошенного окна отбрасываются: seek ffprobe может начаться раньше.
-    Любая отсутствующая или неконечная метка делает окно непригодным, поскольку
-    её удаление занизило бы число кадров в формуле.
+    Отсутствующая или неконечная метка между первой и последней меткой окна (в порядке
+    выдачи) делает окно непригодным, поскольку её удаление занизило бы число кадров
+    в формуле. Такие метки до первой и после последней метки окна на число интервалов
+    не влияют и окно не портят: ffprobe отдаёт их, например, при досбросе декодера
+    в конце чтения. Все они учитываются в invalid_count.
     """
-    finite = [value for value in timestamps if value is not None and math.isfinite(value)]
-    invalid = len(timestamps) - len(finite)
-    values = [value for value in finite if start <= value <= end]
+    invalid = sum(1 for value in timestamps if not _is_valid(value))
+    inside = [
+        (index, value)
+        for index, value in enumerate(timestamps)
+        if value is not None and math.isfinite(value) and start <= value <= end
+    ]
+    values = [value for _, value in inside]
     reason: str | None = None
     fps: float | None = None
     first, last = (values[0], values[-1]) if values else (None, None)
-    if invalid:
-        reason = "Есть отсутствующие, нечисловые или неконечные временные метки"
+    gap = bool(inside) and not all(
+        _is_valid(value) for value in timestamps[inside[0][0] : inside[-1][0] + 1]
+    )
+    if gap:
+        reason = "Есть отсутствующие, нечисловые или неконечные временные метки внутри окна"
     elif len(values) < 2:
         reason = "В запрошенном окне меньше двух временных меток"
     elif any(right <= left for left, right in zip(values, values[1:], strict=False)):
@@ -60,6 +70,11 @@ def measure_window(
         else:
             reason = "Численно непригодный интервал временных меток"
     return WindowMeasurement(start, end, len(values), invalid, first, last, fps, reason)
+
+
+def _is_valid(value: float | None) -> bool:
+    """ Метка пригодна для расчёта: есть и конечна. """
+    return value is not None and math.isfinite(value)
 
 
 def combine_windows(

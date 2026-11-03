@@ -130,3 +130,28 @@ def test_invalid_duration(duration: float) -> None:
 def test_invalid_threshold(threshold: float) -> None:
     with pytest.raises(ValueError):
         combine_windows(12, [], threshold)
+
+
+@pytest.mark.parametrize(
+    "timestamps",
+    [
+        [0.0, 0.5, 1.0, 1.5, 2.0, None, None],  # досброс декодера в конце чтения
+        [None, 0.0, 0.5, 1.0, 1.5, 2.0],  # кадр раннего seek без метки
+        [8.0, None, 0.0, 0.5, 1.0, 1.5, 2.0, 3.0, math.nan],  # вне окна с обеих сторон
+    ],
+)
+def test_missing_timestamps_outside_window_span_are_ignored(
+    timestamps: list[float | None],
+) -> None:
+    window = measure_window(0, 2, timestamps)
+    assert window.fps == pytest.approx(2.0)
+    assert window.reason is None
+    assert window.sample_count == 5
+    assert window.invalid_count == sum(1 for v in timestamps if v is None or not math.isfinite(v))
+
+
+def test_missing_timestamp_inside_window_span_rejects_window() -> None:
+    window = measure_window(0, 2, [0.0, 0.5, None, 1.5, 2.0, None])
+    assert window.fps is None
+    assert window.reason
+    assert window.invalid_count == 2
